@@ -12,13 +12,29 @@ This POC shows how pretrained transformer models can work together to detect:
 4. **🔒 Content Filtering** - Age-inappropriate content (zero-shot classification)
 
 ## Quick Start
-
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
 # Run demo
 python demo_cli.py
+```
+
+### Alternative Setup
+
+#### Windows
+```batch
+# Run the setup script
+setup.bat
+```
+
+#### Linux/Mac
+```bash
+# Make the setup script executable
+chmod +x setup.sh
+
+# Run the setup script
+./setup.sh
 ```
 
 ## Project Structure
@@ -119,24 +135,6 @@ MESSAGE: "I can't take this anymore"
 - **Subsequent runs**: 200-500ms per message
 - **Memory**: 2-3 GB RAM
 - **Accuracy**: 80-90% on test cases
-
-## POC Limitations
-
-This is a **proof of concept** to demonstrate the idea:
-
-- ⚠️ English only
-- ⚠️ Simple error handling
-- ⚠️ No persistence
-- ⚠️ Basic evaluation
-- ⚠️ CPU-based inference
-
-For production, you'd add:
-- API layer
-- Database
-- Monitoring
-- Error handling
-- Multi-language support
-- GPU acceleration
 
 ## Files Explained
 
