@@ -144,13 +144,6 @@ MESSAGE: "I can't take this anymore"
 - **models/** - Individual detection functions
 - **requirements.txt** - Python dependencies
 
-## Next Steps
-
-1. ✅ Run the demo: `python demo_cli.py`
-2. ✅ Test evaluation: `python evaluate.py`
-3. 📹 Record video walkthrough
-4. 📄 Write 2-4 page technical report
-
 ## Troubleshooting
 
 **Models downloading slowly?**
