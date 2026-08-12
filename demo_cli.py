@@ -16,7 +16,7 @@ def run_demo():
     print("  3. Escalation Pattern Recognition")
     print("  4. Content Filtering")
     print("\n" + "="*70 + "\n")
-    
+
     demo_messages = [
         "Hi! How are you today?",
         "This is really annoying me",
@@ -26,17 +26,17 @@ def run_demo():
         "Want to watch that horror movie?",
         "fuck you all"
     ]
-    
+
     conversation_history = []
-    
+
     for i, msg in enumerate(demo_messages, 1):
         print(f"\n>>> Message {i}/{len(demo_messages)}")
         input("Press Enter to analyze next message...")
-        
+
         result = analyze_message(msg, conversation_history.copy(), user_age=13)
         print_results(result)
         conversation_history.append(msg)
-    
+
     print("\n✓ Demo complete!")
 
 
@@ -46,19 +46,19 @@ def run_interactive():
     print("AI SAFETY MODELS POC - INTERACTIVE MODE")
     print("="*70)
     print("\nType messages to analyze (type 'quit' to exit)\n")
-    
+
     conversation_history = []
-    
+
     while True:
         message = input("You: ").strip()
-        
+
         if not message:
             continue
-        
+
         if message.lower() in ['quit', 'exit', 'q']:
             print("\nGoodbye!")
             break
-        
+
         result = analyze_message(message, conversation_history.copy(), user_age=13)
         print_results(result)
         conversation_history.append(message)
@@ -74,9 +74,9 @@ def main():
     print("  2. Interactive Mode (type your own)")
     print("  3. Exit")
     print("\n" + "="*70)
-    
+
     choice = input("\nChoice (1-3): ").strip()
-    
+
     if choice == '1':
         warmup_models()  # Load models once before demo
         run_demo()
