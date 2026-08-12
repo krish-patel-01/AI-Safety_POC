@@ -12,7 +12,7 @@
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  SafetyOrchestrator                          │
+│              models_orchestrator.analyze_message()           │
 │  - Coordinates all models                                    │
 │  - Aggregates results                                        │
 │  - Determines actions                                        │
@@ -48,7 +48,7 @@ result = detect_escalation(messages, window_size)
 result = filter_content(text, user_age)
 
 # Orchestrator coordinates function calls
-orchestrator.analyze_message(text) → calls all detection functions
+models_orchestrator.analyze_message(text) → calls all detection functions
 ```
 
 **Benefits:**

@@ -1,0 +1,39 @@
+[project]
+name = "ai-safety-poc"
+version = "0.1.0"
+description = "Proof of concept: four pretrained transformer models composed into a chat safety filter."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["ai-safety", "content-moderation", "transformers", "toxicity-detection", "nlp"]
+
+# Deliberately minimal. The four detectors import only `transformers` and `torch`;
+# everything else the original requirements.txt listed (spacy, nltk, pandas,
+# scikit-learn, streamlit, matplotlib, seaborn, colorama, tqdm) was unused and
+# added gigabytes to a first install for nothing.
+dependencies = [
+    "transformers>=4.30.0",
+    "torch>=2.0.0",
+]
+
+[project.scripts]
+ai-safety-demo = "demo_cli:main"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.setuptools]
+py-modules = ["demo_cli", "evaluate", "models_orchestrator"]
+packages = ["models"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

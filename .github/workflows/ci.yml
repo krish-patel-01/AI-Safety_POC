@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Ruff
+        run: uvx ruff check --output-format=github .
+
+  compile:
+    name: Syntax (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # torch + transformers are ~2GB and every model download is another 2GB, so
+      # CI checks that the code parses rather than installing the whole stack.
+      - name: Byte-compile
+        run: python -m compileall -q .
+
+  docs:
+    name: Docs reference real files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # This repo shipped for months telling users to run `demo_cli.py`, `cli_chat.py`
+      # and `README_SIMPLE.md`, none of which existed. Every documented .py file must
+      # actually be present.
+      - name: Check documented files exist
+        run: |
+          python - <<'PY'
+          import pathlib, re, sys
+
+          root = pathlib.Path(".")
+          docs = list(root.glob("*.md")) + list(root.glob("docs/*.md")) \
+               + list(root.glob("setup.sh")) + list(root.glob("setup.bat"))
+
+          pattern = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*\.py)\b")
+          broken = []
+
+          for doc in docs:
+              text = doc.read_text(encoding="utf-8", errors="replace")
+              for name in set(pattern.findall(text)):
+                  if not list(root.rglob(name)):
+                      broken.append(f"{doc}: references missing file '{name}'")
+
+          if broken:
+              print("\n".join(sorted(broken)))
+              sys.exit(1)
+          print("all documented .py files exist")
+          PY

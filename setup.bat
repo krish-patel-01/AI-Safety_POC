@@ -31,7 +31,7 @@ echo Next Steps:
 echo ================================================
 echo.
 echo Option 1: Run CLI Demo
-echo   python cli_chat.py
+echo   python demo_cli.py
 echo.
 echo Option 2: Run Evaluation
 echo   python evaluate.py

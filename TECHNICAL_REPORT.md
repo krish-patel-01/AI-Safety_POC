@@ -58,7 +58,7 @@ Developed a POC demonstrating:
 The system follows a **function-based modular architecture** with clear separation of concerns:
 
 ```
-Message Input → SafetyOrchestrator → Individual Models → Aggregation → Action Recommendations
+Message Input → models_orchestrator → Individual Models → Aggregation → Action Recommendations
 ```
 
 **Design Principles**:
@@ -93,7 +93,7 @@ Message Input → SafetyOrchestrator → Individual Models → Aggregation → A
 - **Approach**: Category-based filtering with age thresholds
 - **Output**: Appropriateness flag + flagged categories
 
-### 2.3 Integration Layer: SafetyOrchestrator
+### 2.3 Integration Layer: models_orchestrator
 
 **Responsibilities**:
 1. Coordinate execution of all detection models

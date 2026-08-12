@@ -1,163 +1,175 @@
-# AI Safety Models - Proof of Concept
+# AI Safety Models — Proof of Concept
 
-A simple POC demonstrating 4 integrated AI safety models for chat monitoring.
+Four pretrained transformer models composed into a single chat-safety check. Each
+message is scored independently for **abuse**, **crisis signals**, **conversational
+escalation** and **age-appropriateness**; a message is reported safe only if all four
+agree.
 
-## Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 
-This POC shows how pretrained transformer models can work together to detect:
+> **Proof of concept, not a safety system.** Thresholds are hand-picked rather than
+> tuned, the evaluation set is four messages, and no model here has been validated on
+> real user data. See [Limitations](#limitations) before drawing conclusions from it.
 
-1. **🗣️ Abuse Language** - Toxic/threatening content (toxic-bert)
-2. **🆘 Crisis Intervention** - Self-harm indicators (emotion-distilroberta)
-3. **📈 Escalation Patterns** - Conversation escalation (sentiment analysis)
-4. **🔒 Content Filtering** - Age-inappropriate content (zero-shot classification)
+---
 
-## Quick Start
+## The four detectors
+
+| Detector | Model | Reads | Flags when |
+|---|---|---|---|
+| Abuse | [`unitary/toxic-bert`](https://huggingface.co/unitary/toxic-bert) | current message | any toxicity category crosses threshold |
+| Crisis | [`j-hartmann/emotion-english-distilroberta-base`](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base) | current message | distress emotions + crisis phrase patterns |
+| Escalation | [`cardiffnlp/twitter-roberta-base-sentiment-latest`](https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment-latest) | conversation history | sentiment trends negative across messages |
+| Content filter | [`facebook/bart-large-mnli`](https://huggingface.co/facebook/bart-large-mnli) | current message + user age | zero-shot match on age-inappropriate categories |
+
+Escalation is the only one that needs history — the other three are pure functions of a
+single message. That's why `analyze_message` takes a `conversation_history` list.
+
+```
+                       ┌──────────────────────────────┐
+   message ───────────▶│      analyze_message()       │
+   history ───────────▶│    models_orchestrator.py    │
+   user_age ──────────▶└──────────────┬───────────────┘
+                                      │ fan-out
+              ┌───────────┬───────────┼───────────┬────────────┐
+              ▼           ▼           ▼           ▼            │
+          ┌───────┐  ┌────────┐  ┌──────────┐ ┌─────────┐      │
+          │ abuse │  │ crisis │  │escalation│ │ content │      │
+          └───┬───┘  └───┬────┘  └────┬─────┘ └────┬────┘      │
+              └──────────┴────────────┴────────────┘           │
+                                      │ is_safe = NOT any flag │
+                                      ▼                        │
+                            { is_safe, per-model detail } ◀────┘
+```
+
+`is_safe` is a plain OR over the four flags — any single detector firing marks the
+message unsafe. There is no weighting or confidence combination.
+
+## Quick start
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+git clone https://github.com/krish-patel-01/AI-Safety_POC.git
+cd AI-Safety_POC
 
-# Run demo
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
 python demo_cli.py
 ```
 
-### Alternative Setup
+`setup.sh` (Linux/macOS) and `setup.bat` (Windows) do the same thing.
 
-#### Windows
-```batch
-# Run the setup script
-setup.bat
-```
-
-#### Linux/Mac
-```bash
-# Make the setup script executable
-chmod +x setup.sh
-
-# Run the setup script
-./setup.sh
-```
-
-## Project Structure
-
-```
-AI_safety/
-├── models/                      # 4 safety detection models
-│   ├── abuse_detection.py      # Toxicity detection
-│   ├── crisis_detection.py     # Crisis/distress detection
-│   ├── escalation_detection.py # Escalation patterns
-│   └── content_filtering.py    # Age-appropriate filtering
-├── models_orchestrator.py      # Coordinates all 4 models
-├── demo_cli.py               # Interactive demo
-├── evaluate.py          # Basic evaluation
-└── requirements.txt            # Dependencies
-```
+The first run downloads roughly **2 GB** of model weights from Hugging Face and takes
+1–2 minutes. They're cached in `~/.cache/huggingface` afterwards, so later runs start
+in seconds.
 
 ## Usage
 
-### 1. Demo Mode (Recommended)
+### Interactive demo
+
 ```bash
 python demo_cli.py
-# Select option 1: "Run Demo"
 ```
 
-### 2. Interactive Mode
-```bash
-python demo_cli.py
-# Select option 2: "Interactive Mode"
-# Type your own messages
+Two modes: option `1` walks through seven predefined messages that each trip a
+different detector; option `2` lets you type your own. Models are loaded once via
+`warmup_models()` before either mode starts, rather than on every message.
+
+### As a library
+
+```python
+from models_orchestrator import analyze_message, warmup_models
+
+warmup_models()   # optional, but avoids a slow first call
+
+result = analyze_message(
+    "I can't take this anymore",
+    conversation_history=["hey", "this is annoying"],
+    user_age=13,
+)
+
+result["is_safe"]                            # False
+result["crisis_detection"]["risk_score"]     # 0.0–1.0
+result["abuse_detection"]["flagged_categories"]
 ```
 
-### 3. Evaluation
+`analyze_message` returns a dict with `message`, `is_safe`, and one sub-dict per
+detector, each carrying its own score and flags. Nothing is logged or persisted.
+
+### Evaluation
+
 ```bash
 python evaluate.py
 ```
 
-### 4. Programmatic Use
-```python
-from models_orchestrator import analyze_message
+Runs four labelled cases and prints accuracy. This is a smoke test that the pipeline
+produces sane output — it is not a benchmark, and the number it prints should not be
+quoted as one.
 
-result = analyze_message("Your message here", user_age=13)
-print(result['is_safe'])  # True or False
-print(result['abuse_detection'])  # Abuse results
-print(result['crisis_detection'])  # Crisis results
-```
+## Configuration
 
-## How It Works
+Thresholds live as defaults in each detector's function signature:
 
-**Simple Function-Based Design:**
+| Detector | Parameter | Default |
+|---|---|---|
+| `detect_abuse` | `threshold` | toxicity score above which a category is flagged |
+| `detect_crisis` | `threshold` | distress score required to flag crisis |
+| `detect_escalation` | `window_size` | how many recent messages form the trend |
+| `filter_content` | `user_age` | drives which categories count as inappropriate |
 
-```python
-# Each model is a simple function
-detect_abuse(text) → result
-detect_crisis(text) → result
-detect_escalation(messages) → result
-filter_content(text, age) → result
+They were chosen by hand on the demo messages. Any real deployment needs them
+re-tuned against its own labelled data.
 
-# Orchestrator runs all 4
-analyze_message(text) → combined_result
-```
-
-## Models Used
-
-| Component | Model | Purpose |
-|-----------|-------|---------|
-| Abuse Detection | unitary/toxic-bert | 6-category toxicity |
-| Crisis Detection | j-hartmann/emotion-english-distilroberta-base | Emotion + keywords |
-| Escalation Detection | cardiffnlp/twitter-roberta-base-sentiment-latest | Sentiment trends |
-| Content Filtering | facebook/bart-large-mnli | Zero-shot classification |
-
-## Example Output
+## Project layout
 
 ```
-MESSAGE: "I can't take this anymore"
-⚠️ UNSAFE
-
-🗣️  Abuse Detection:
-    Is Abusive: False
-    Max Toxicity: 0.123
-
-🆘 Crisis Detection:
-    Is Crisis: True
-    Risk Score: 0.724
-    ⚠️  INTERVENTION REQUIRED!
-
-📈 Escalation Detection:
-    Is Escalating: False
-    Trend: STABLE
-
-🔒 Content Filtering:
-    Age Appropriate: True
+├── models_orchestrator.py   # fan-out, is_safe aggregation, result formatting
+├── demo_cli.py              # interactive CLI (demo + freeform modes)
+├── evaluate.py              # 4-case smoke test
+├── models/
+│   ├── abuse_detection.py       # toxic-bert
+│   ├── crisis_detection.py      # emotion-distilroberta + phrase patterns
+│   ├── escalation_detection.py  # twitter-roberta sentiment trend
+│   └── content_filtering.py     # bart-large-mnli zero-shot
+├── ARCHITECTURE.md          # design notes
+├── TECHNICAL_REPORT.md      # model selection and rationale
+└── docs/problem-statement.txt   # original brief
 ```
 
-## Performance
+Each detector module exposes a `load_*_model()` that memoises the model in a module
+global, and a `detect_*`/`filter_*` function that uses it.
 
-- **First run**: Downloads models (~1-2 GB), takes 1-2 minutes
-- **Subsequent runs**: 200-500ms per message
-- **Memory**: 2-3 GB RAM
-- **Accuracy**: 80-90% on test cases
+## Limitations
 
-## Files Explained
+These matter more than the feature list:
 
-- **models_orchestrator.py** - Main logic, runs all 4 models
-- **demo_cli.py** - Interactive demo tool
-- **evaluate.py** - Basic testing
-- **models/** - Individual detection functions
-- **requirements.txt** - Python dependencies
+- **English only.** Every model is English-trained; other languages will score
+  arbitrarily rather than fail loudly.
+- **Thresholds are guesses.** Not tuned, not validated, no measured false-positive or
+  false-negative rate.
+- **The evaluation set is four messages.** It cannot support any accuracy claim.
+- **Crisis detection is not a safety net.** It combines an emotion classifier with
+  keyword patterns and will miss indirect or coded expressions of distress. Do not put
+  it in a path where a missed detection harms someone.
+- **No adversarial robustness.** Obfuscation, character substitution and paraphrase
+  defeat these classifiers easily.
+- **Sequential inference on CPU.** Four models run one after another per message —
+  usable for a demo, too slow for live chat at volume.
+- **Known biases.** Toxicity classifiers over-flag African-American English and text
+  discussing identity terms. `unitary/toxic-bert` inherits this from its training data.
 
-## Troubleshooting
+If you're building something real for crisis response, route to trained humans and
+established services, not to this.
 
-**Models downloading slowly?**
-- First run downloads ~1-2 GB (one-time only)
-- Needs internet connection
+## Development
 
-**Memory errors?**
-- Close other applications
-- Needs 4GB+ RAM
+```bash
+pip install -e ".[dev]"
+ruff check .
+```
 
-**Import errors?**
-- Run: `pip install -r requirements.txt`
-- Check Python version (3.8+ required)
+## License
 
----
-
-**This is a POC** - it demonstrates the concept works. For production deployment, significant additional engineering would be required.
+[MIT](LICENSE)
